@@ -12,10 +12,11 @@ Design System: Technical Dashboard / Network Monitoring
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+import httpx
 
 from app.api.routes.skills import router as skills_router
 from app.models.database import init_db
@@ -482,7 +483,7 @@ async def home():
                     <div class="metric-dot"></div>
                     <span class="metric-value green">ONLINE</span>
                 </div>
-                <button class="btn-cta" @click="showPublishModal = true">+ Publish</button>
+                <button class="btn-cta" @click="showInstallGuide = true">🔌 Install Skill</button>
             </div>
         </div>
     </header>
@@ -703,27 +704,39 @@ async def home():
         </div>
     </div>
 
-    <!-- ═══ Publish Modal ═══ -->
-    <div x-show="showPublishModal" x-transition.opacity class="modal-overlay" @click.self="showPublishModal = false">
-        <div class="modal">
+    <!-- ═══ SKILL INSTALL GUIDE MODAL ═══ -->
+        <div x-show="showInstallGuide" x-transition.opacity class="modal-overlay" @click.self="showInstallGuide = false">
+        <div class="modal" style="max-width:640px">
             <div class="modal-header">
                 <div>
-                    <div class="modal-title">Publish Skill</div>
-                    <div class="modal-subtitle">SKILL.md will be scanned before network broadcast</div>
+                    <div class="modal-title">🔌 Install a Skill</div>
+                    <div class="modal-subtitle">Add SKILL.md from any source — GitHub, URL, or local file</div>
                 </div>
-                <button class="modal-close" @click="showPublishModal = false">✕</button>
+                <button class="modal-close" @click="showInstallGuide = false">✕</button>
             </div>
-            <div class="modal-body">
-                <div class="form-group"><label class="form-label">Agent ID</label><input class="form-input" x-model="publishAgentId" placeholder="your-agent-id"></div>
-                <div class="form-group"><label class="form-label">Skill Name</label><input class="form-input" x-model="newSkill.name" placeholder="e.g. code-reviewer"></div>
-                <div class="form-group"><label class="form-label">Description</label><input class="form-input" x-model="newSkill.description" placeholder="What this skill does"></div>
-                <div class="form-group"><label class="form-label">SKILL.md Content</label><textarea class="form-textarea" x-model="newSkill.content" placeholder="# Skill Name&#10;&#10;Description..."></textarea></div>
-                <div style="display:flex;justify-content:flex-end;gap:8px;">
-                    <button class="btn-ghost" @click="showPublishModal = false">Cancel</button>
-                    <button class="btn-cta" @click="publishSkill()" :disabled="publishing">
-                        <span x-show="!publishing">Publish →</span>
-                        <span x-show="publishing" class="pulse">Scanning...</span>
-                    </button>
+            <div class="modal-body" style="font-family:var(--mono);font-size:13px;">
+                <div style="margin-bottom:8px;color:var(--cyan)">From GitHub:</div>
+                <div style="padding:10px 14px;background:var(--bg-deep);border:1px solid var(--border);border-radius:6px;margin-bottom:16px;overflow-x:auto;white-space:nowrap">
+                    <span style="color:var(--text-muted)">$</span> agent-self skill install github:user/repo/SKILL.md
+                </div>
+                <div style="margin-bottom:8px;color:var(--cyan)">From URL:</div>
+                <div style="padding:10px 14px;background:var(--bg-deep);border:1px solid var(--border);border-radius:6px;margin-bottom:16px;overflow-x:auto;white-space:nowrap">
+                    <span style="color:var(--text-muted)">$</span> agent-self skill install https://raw.githubusercontent.com/.../SKILL.md
+                </div>
+                <div style="margin-bottom:8px;color:var(--cyan)">From local file:</div>
+                <div style="padding:10px 14px;background:var(--bg-deep);border:1px solid var(--border);border-radius:6px;margin-bottom:16px;overflow-x:auto;white-space:nowrap">
+                    <span style="color:var(--text-muted)">$</span> agent-self skill install ./path/to/SKILL.md
+                </div>
+                <div style="margin-bottom:8px;color:var(--cyan)">List installed:</div>
+                <div style="padding:10px 14px;background:var(--bg-deep);border:1px solid var(--border);border-radius:6px;margin-bottom:16px;overflow-x:auto;white-space:nowrap">
+                    <span style="color:var(--text-muted)">$</span> agent-self skill list
+                </div>
+                <div style="margin-bottom:8px;color:var(--cyan)">Discover skills:</div>
+                <div style="padding:10px 14px;background:var(--bg-deep);border:1px solid var(--border);border-radius:6px;margin-bottom:16px;overflow-x:auto;white-space:nowrap">
+                    <span style="color:var(--text-muted)">$</span> agent-self skill discover --query "code review"
+                </div>
+                <div style="padding:12px;background:var(--cyan-dim);border:1px solid rgba(0,240,255,0.2);border-radius:6px;font-size:12px;color:var(--text-secondary)">
+                    🛡️ Every skill is scanned before install. Dangerous patterns auto-blocked.
                 </div>
             </div>
         </div>
@@ -937,6 +950,40 @@ async def health():
         "theme": "matrix",
         "database": db_status,
     }
+
+
+@app.get("/api/v1/skills/search")
+async def search_skills(q: str = Query("", description="Search query"), limit: int = Query(10, ge=1, le=50)):
+    """Search GitHub for SKILL.md files — used by CLI `agent-self skill discover`."""
+    try:
+        search_query = f"filename:SKILL.md {q}".strip()
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                "https://api.github.com/search/code",
+                params={"q": search_query, "per_page": limit},
+                headers={"Accept": "application/vnd.github.v3+json"},
+                timeout=10.0,
+            )
+            data = resp.json()
+        
+        results = []
+        for item in data.get("items", []):
+            repo = item["repository"]["full_name"]
+            path = item["path"]
+            html_url = item["html_url"]
+            parts = path.split("/")
+            skill_name = parts[0] if len(parts) > 1 else path.replace(".md", "")
+            results.append({
+                "name": skill_name,
+                "repo": repo,
+                "path": path,
+                "url": html_url,
+                "install_cmd": f"agent-self skill install github:{repo}/{path}",
+            })
+        
+        return {"query": q, "count": len(results), "skills": results}
+    except Exception as e:
+        return {"query": q, "count": 0, "skills": [], "error": str(e)[:200]}
 
 
 if __name__ == "__main__":
