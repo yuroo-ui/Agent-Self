@@ -881,14 +881,14 @@ async def home():
         return {
             view: 'home', skills: [], agents: [], stats: {},
             search: '', category: 'all',
-            showPublishModal: false, selectedSkill: null,
+            showInstallGuide: false, selectedSkill: null,
             publishing: false, publishAgentId: '',
             toast: '', newSkill: { name: '', description: '', content: '', category: 'general' },
 
             async init() {
                 await this.fetchStats(); await this.fetchSkills(); await this.fetchAgents();
                 document.addEventListener('keydown', e => {
-                    if (e.key === 'Escape') { this.showPublishModal = false; this.selectedSkill = null; }
+                    if (e.key === 'Escape') { this.showInstallGuide = false; this.selectedSkill = null; }
                 });
             },
             async fetchStats() { try { this.stats = await (await fetch('/api/v1/stats')).json(); } catch(e) {} },
@@ -903,16 +903,7 @@ async def home():
             async fetchAgents() { try { this.agents = await (await fetch('/api/v1/agents')).json(); } catch(e) {} },
             viewSkill(skill) { this.selectedSkill = skill; },
             async publishSkill() {
-                if (!this.newSkill.name || !this.newSkill.content || !this.publishAgentId) { this.showToast('Agent ID, name, content required'); return; }
-                this.publishing = true;
-                try {
-                    const r = await fetch('/api/v1/skills/publish?agent_id=' + this.publishAgentId, {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.newSkill),
-                    });
-                    if (r.ok) { this.showToast('Skill published ✓'); this.showPublishModal = false; this.newSkill = {name:'',description:'',content:'',category:'general'}; await this.fetchSkills(); await this.fetchStats(); }
-                    else { this.showToast('Error: ' + ((await r.json()).detail || 'Unknown')); }
-                } catch(e) { this.showToast('Failed'); }
-                this.publishing = false;
+                this.showToast('Use CLI: agent-self skill install <url>');
             },
             async learnSkill(skillId) {
                 if (!this.publishAgentId) { this.showToast('Set Agent ID first'); return; }
