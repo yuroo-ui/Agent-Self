@@ -921,7 +921,22 @@ async def home():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "agent-self", "theme": "matrix"}
+    # Test database connectivity
+    db_status = "ok"
+    try:
+        from app.models.database import engine
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception as e:
+        db_status = f"error: {str(e)[:100]}"
+    
+    return {
+        "status": "ok",
+        "service": "agent-self",
+        "theme": "matrix",
+        "database": db_status,
+    }
 
 
 if __name__ == "__main__":
