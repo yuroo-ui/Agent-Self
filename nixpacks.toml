@@ -1,12 +1,11 @@
-# Railway Configuration
+# Railway Configuration (Nixpacks)
+# Python 3.12 + pip, no build-time DB init
+
 [phases.setup]
-nixPkgs = ["python311", "gcc"]
+nixPkgs = ["python312"]
 
 [phases.install]
-cmds = ["pip install -r requirements.txt"]
-
-[phases.build]
-cmds = ["python -c \"from app.models.database import init_db; init_db()\""]
+cmds = ["pip install --no-cache-dir -r requirements.txt"]
 
 [start]
 cmd = "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"

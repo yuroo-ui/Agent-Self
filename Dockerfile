@@ -12,8 +12,11 @@ COPY . .
 # Create data directory for SQLite (if used)
 RUN mkdir -p /app/data
 
-# Expose Railway port
-EXPOSE ${PORT:-8000}
+# Make start script executable
+RUN chmod +x start.sh
 
-# Run
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
+# Expose default port
+EXPOSE 8000
+
+# Run via bash script (proper env var expansion)
+CMD ["bash", "start.sh"]
