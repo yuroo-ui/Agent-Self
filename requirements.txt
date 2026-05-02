@@ -1,11 +1,12 @@
 # Core
 fastapi==0.111.0
-uvicorn==0.30.1
+uvicorn[standard]==0.30.1
 python-dotenv==1.0.1
 
 # Database
 sqlalchemy==2.0.31
 alembic==1.13.1
+psycopg2-binary==2.9.9  # PostgreSQL driver for Railway
 
 # Security
 pyjwt==2.8.0
@@ -15,9 +16,6 @@ python-multipart==0.0.9
 # HTTP
 httpx==0.27.0
 aiofiles==23.2.1
-
-# Scanning
-yara-python==4.5.1
 
 # Utils
 pydantic==2.7.4

@@ -9,8 +9,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy app
 COPY . .
 
-# Expose port
-EXPOSE 8000
+# Create data directory for SQLite (if used)
+RUN mkdir -p /app/data
+
+# Expose Railway port
+EXPOSE ${PORT:-8000}
 
 # Run
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
