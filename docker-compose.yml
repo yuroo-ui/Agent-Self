@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  agent-self:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./agentself.db
+      - DEBUG=false
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
