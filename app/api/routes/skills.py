@@ -24,7 +24,7 @@ from app.models.models import (
     Agent, Skill, LearningLog, PeerConnection, SkillReview,
     AgentStatus, SkillStatus, ScanResult, LearningStatus
 )
-from app.sandbox.scanner import SandboxScanner
+from app.sandbox.scanner import SkillScanner
 from app.services.trust import TrustEngine
 
 router = APIRouter(prefix="/api/v1", tags=["marketplace"])
@@ -221,17 +221,17 @@ async def publish_skill(agent_id: str, data: SkillPublish, db: Session = Depends
     db.commit()
     db.refresh(skill)
     
-    # Run sandbox scan asynchronously
-    scanner = SandboxScanner()
-    scan_result = await scanner.scan_skill(data.content, data.name)
+    # Run sandbox scan
+    scanner = SkillScanner()
+    report = scanner.scan(data.content)
     
     # Update skill with scan results
-    skill.scan_result = ScanResult(scan_result["verdict"])
-    skill.scan_details = json.dumps(scan_result["details"])
-    skill.status = SkillStatus.APPROVED if scan_result["verdict"] == "clean" else SkillStatus.REJECTED
+    skill.scan_result = report.result.value
+    skill.scan_details = json.dumps(report.to_dict())
+    skill.status = SkillStatus.APPROVED if report.result.value == "clean" else SkillStatus.REJECTED
     
-    # Calculate trust score
-    trust = TrustEngine.calculate_skill_trust(skill, agent)
+    # Use scanner's trust score
+    trust = report.trust_score
     skill.trust_score = trust
     
     # Update agent stats
